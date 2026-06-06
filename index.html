@@ -2278,6 +2278,57 @@
             }
         }
     </style>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js';
+
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzmZXVwyTJou4vF3GHYF2HU3zmQSfX_T4",
+            authDomain: "sales-tracker-3a67d.firebaseapp.com",
+            projectId: "sales-tracker-3a67d",
+            storageBucket: "sales-tracker-3a67d.firebasestorage.app",
+            messagingSenderId: "398121202576",
+            appId: "1:398121202576:web:34be282206d23259d77915",
+            measurementId: "G-F6DN4BX3GJ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const analytics = getAnalytics(app);
+
+        // Make Firebase available globally
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        window.firebaseModules = {
+            collection,
+            doc,
+            setDoc,
+            getDoc,
+            getDocs,
+            updateDoc,
+            deleteDoc,
+            onSnapshot,
+            writeBatch,
+            signInAnonymously,
+            onAuthStateChanged
+        };
+
+        // Auto sign in anonymously
+        signInAnonymously(auth).then(() => {
+            console.log('Firebase: Signed in anonymously');
+        }).catch((error) => {
+            console.error('Firebase sign in error:', error);
+        });
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -2754,10 +2805,114 @@
 
     <script>
         // ===== DATA STORAGE =====
-        let products = JSON.parse(localStorage.getItem('products')) || [];
-        let sales = JSON.parse(localStorage.getItem('sales')) || [];
-        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-        let restocks = JSON.parse(localStorage.getItem('restocks')) || [];
+        let products = [];
+        let sales = [];
+        let expenses = [];
+        let restocks = [];
+        let firebaseReady = false;
+        let userId = null;
+        
+        // Wait for Firebase to be ready
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                const checkFirebase = setInterval(() => {
+                    if (window.firebaseDb && window.firebaseAuth && window.firebaseModules) {
+                        clearInterval(checkFirebase);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+        
+        // Load data from Firebase
+        async function loadDataFromFirebase() {
+            try {
+                await waitForFirebase();
+                const { onAuthStateChanged } = window.firebaseModules;
+                
+                return new Promise((resolve) => {
+                    onAuthStateChanged(window.firebaseAuth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            console.log('Firebase: User authenticated', userId);
+                            
+                            try {
+                                const { collection, getDocs } = window.firebaseModules;
+                                const userCollection = `users/${userId}`;
+                                
+                                // Load products
+                                const productsSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/products`));
+                                products = productsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                                
+                                // Load sales
+                                const salesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/sales`));
+                                sales = salesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                                
+                                // Load expenses
+                                const expensesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/expenses`));
+                                expenses = expensesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                                
+                                // Load restocks
+                                const restocksSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/restocks`));
+                                restocks = restocksSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                                
+                                console.log('Firebase: Data loaded successfully');
+                                console.log(`Products: ${products.length}, Sales: ${sales.length}, Expenses: ${expenses.length}, Restocks: ${restocks.length}`);
+                                
+                                firebaseReady = true;
+                                
+                                // Try to migrate from localStorage if Firebase is empty
+                                if (products.length === 0 && sales.length === 0) {
+                                    migrateFromLocalStorage();
+                                }
+                                
+                                resolve();
+                            } catch (error) {
+                                console.error('Firebase: Error loading data', error);
+                                // Fallback to localStorage
+                                loadFromLocalStorage();
+                                resolve();
+                            }
+                        } else {
+                            console.log('Firebase: No user authenticated, loading from localStorage');
+                            loadFromLocalStorage();
+                            resolve();
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Firebase: Initialization error', error);
+                loadFromLocalStorage();
+            }
+        }
+        
+        // Fallback to localStorage
+        function loadFromLocalStorage() {
+            products = JSON.parse(localStorage.getItem('products')) || [];
+            sales = JSON.parse(localStorage.getItem('sales')) || [];
+            expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+            restocks = JSON.parse(localStorage.getItem('restocks')) || [];
+            console.log('Loaded from localStorage');
+        }
+        
+        // Migrate data from localStorage to Firebase
+        async function migrateFromLocalStorage() {
+            const localProducts = JSON.parse(localStorage.getItem('products')) || [];
+            const localSales = JSON.parse(localStorage.getItem('sales')) || [];
+            const localExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
+            const localRestocks = JSON.parse(localStorage.getItem('restocks')) || [];
+            
+            if (localProducts.length > 0 || localSales.length > 0 || localExpenses.length > 0 || localRestocks.length > 0) {
+                console.log('Migrating data from localStorage to Firebase...');
+                products = localProducts;
+                sales = localSales;
+                expenses = localExpenses;
+                restocks = localRestocks;
+                await saveDataToFirebase();
+                console.log('Migration complete!');
+                showToast('Data migrated to cloud storage!', 'success');
+            }
+        }
         
         // ===== DATA MIGRATION =====
         function migrateData() {
@@ -2812,7 +2967,10 @@
         let restockSearchQuery = '';
 
         // ===== INITIALIZATION =====
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load data from Firebase first
+            await loadDataFromFirebase();
+            
             migrateData();
             initializeTabs();
             initializeToggleTabs();
@@ -4416,22 +4574,89 @@
         }
 
         // ===== SYNC DATA =====
-        function syncData() {
+        async function syncData() {
             const icon = document.getElementById('syncIcon');
             icon.classList.add('syncing');
             
-            setTimeout(() => {
+            try {
+                if (firebaseReady && userId) {
+                    // First, save current data to Firebase
+                    await saveDataToFirebase();
+                    
+                    // Then, reload data from Firebase to get any updates
+                    await loadDataFromFirebase();
+                    
+                    // Refresh the UI
+                    refreshAll();
+                    
+                    showToast('Data synced with cloud!', 'success');
+                } else {
+                    showToast('Cloud sync not available. Using local storage.', 'info');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                showToast('Sync failed. Data saved locally.', 'error');
+            } finally {
                 icon.classList.remove('syncing');
-                showToast('Data synced locally', 'success');
-            }, 1000);
+            }
         }
 
         // ===== UTILITY FUNCTIONS =====
-        function saveData() {
+        async function saveData() {
+            // Always save to localStorage as backup
             localStorage.setItem('products', JSON.stringify(products));
             localStorage.setItem('sales', JSON.stringify(sales));
             localStorage.setItem('expenses', JSON.stringify(expenses));
             localStorage.setItem('restocks', JSON.stringify(restocks));
+            
+            // Save to Firebase if available
+            if (firebaseReady && userId) {
+                try {
+                    await saveDataToFirebase();
+                } catch (error) {
+                    console.error('Firebase save error:', error);
+                }
+            }
+        }
+        
+        async function saveDataToFirebase() {
+            if (!firebaseReady || !userId) return;
+            
+            try {
+                const { collection, doc, setDoc, writeBatch } = window.firebaseModules;
+                const batch = writeBatch(window.firebaseDb);
+                const userCollection = `users/${userId}`;
+                
+                // Save products
+                products.forEach(product => {
+                    const productRef = doc(window.firebaseDb, `${userCollection}/products`, `product_${product.id}`);
+                    batch.set(productRef, product);
+                });
+                
+                // Save sales
+                sales.forEach(sale => {
+                    const saleRef = doc(window.firebaseDb, `${userCollection}/sales`, `sale_${sale.id}`);
+                    batch.set(saleRef, sale);
+                });
+                
+                // Save expenses
+                expenses.forEach(expense => {
+                    const expenseRef = doc(window.firebaseDb, `${userCollection}/expenses`, `expense_${expense.id}`);
+                    batch.set(expenseRef, expense);
+                });
+                
+                // Save restocks
+                restocks.forEach(restock => {
+                    const restockRef = doc(window.firebaseDb, `${userCollection}/restocks`, `restock_${restock.id}`);
+                    batch.set(restockRef, restock);
+                });
+                
+                await batch.commit();
+                console.log('Firebase: Data saved successfully');
+            } catch (error) {
+                console.error('Firebase: Error saving data', error);
+                throw error;
+            }
         }
 
         function refreshAll() {
