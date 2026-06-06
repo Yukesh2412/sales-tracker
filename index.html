@@ -1849,6 +1849,54 @@
             color: var(--color-bg-primary);
         }
 
+        /* Global Loader */
+        .global-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .global-loader.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loader-content {
+            background: var(--color-bg-secondary);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5) var(--space-6);
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .loader-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loader-text {
+            color: var(--color-text-primary);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
         /* Autocomplete dropdown */
         .autocomplete-dropdown {
             position: absolute;
@@ -2284,7 +2332,6 @@
         // Import the functions you need from the SDKs you need
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js';
 
         // Your Firebase configuration
@@ -2300,13 +2347,11 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app);
         const analytics = getAnalytics(app);
 
         // Make Firebase available globally
         window.firebaseApp = app;
         window.firebaseDb = db;
-        window.firebaseAuth = auth;
         window.firebaseModules = {
             collection,
             doc,
@@ -2316,17 +2361,8 @@
             updateDoc,
             deleteDoc,
             onSnapshot,
-            writeBatch,
-            signInAnonymously,
-            onAuthStateChanged
+            writeBatch
         };
-
-        // Auto sign in anonymously
-        signInAnonymously(auth).then(() => {
-            console.log('Firebase: Signed in anonymously');
-        }).catch((error) => {
-            console.error('Firebase sign in error:', error);
-        });
     </script>
 </head>
 <body>
@@ -2334,15 +2370,9 @@
         <!-- Header -->
         <div class="header">
             <div class="header-left">
-                <div class="profile-icon" onclick="showToast('Profile coming soon!', 'info')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                </div>
                 <h1>Sales Tracker</h1>
             </div>
-            <span class="sync-icon" id="syncIcon" onclick="syncData()">☁️</span>
+            <span class="sync-icon" id="syncIcon" onclick="syncData()" title="Sync from cloud">☁️</span>
         </div>
 
         <!-- Navigation Tabs -->
@@ -2771,6 +2801,14 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
+    <!-- Global Loading Overlay -->
+    <div class="global-loader" id="globalLoader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text" id="loaderText">Loading...</div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div class="modal" id="deleteModal">
         <div class="modal-content">
@@ -2803,21 +2841,37 @@
     </div>
 
     <script>
+        // ===== STATIC USER - ALWAYS LOGGED IN =====
+        const userId = 'main_user'; // Single user for all devices
+
         // ===== DATA STORAGE =====
         let products = [];
         let sales = [];
         let expenses = [];
         let restocks = [];
         let firebaseReady = false;
-        let userId = null;
         
         // Wait for Firebase to be ready
+        // Wait for Firebase to be ready
         function waitForFirebase() {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds max
+                
+                console.log('Checking Firebase initialization...');
+                
                 const checkFirebase = setInterval(() => {
-                    if (window.firebaseDb && window.firebaseAuth && window.firebaseModules) {
+                    attempts++;
+                    
+                    if (window.firebaseDb && window.firebaseModules) {
+                        console.log('Firebase initialized successfully!');
                         clearInterval(checkFirebase);
                         resolve();
+                    } else if (attempts >= maxAttempts) {
+                        console.error('Firebase initialization timeout after 5 seconds');
+                        console.log('firebaseDb:', !!window.firebaseDb, 'firebaseModules:', !!window.firebaseModules);
+                        clearInterval(checkFirebase);
+                        reject(new Error('Firebase initialization timeout'));
                     }
                 }, 100);
             });
@@ -2825,64 +2879,80 @@
         
         // Load data from Firebase
         async function loadDataFromFirebase() {
+            showLoader();
+            
             try {
                 await waitForFirebase();
-                const { onAuthStateChanged } = window.firebaseModules;
+                const { collection, getDocs } = window.firebaseModules;
+                const userCollection = `users/${userId}`;
                 
-                return new Promise((resolve) => {
-                    onAuthStateChanged(window.firebaseAuth, async (user) => {
-                        if (user) {
-                            userId = user.uid;
-                            console.log('Firebase: User authenticated', userId);
-                            
-                            try {
-                                const { collection, getDocs } = window.firebaseModules;
-                                const userCollection = `users/${userId}`;
-                                
-                                // Load products
-                                const productsSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/products`));
-                                products = productsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
-                                
-                                // Load sales
-                                const salesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/sales`));
-                                sales = salesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
-                                
-                                // Load expenses
-                                const expensesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/expenses`));
-                                expenses = expensesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
-                                
-                                // Load restocks
-                                const restocksSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/restocks`));
-                                restocks = restocksSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
-                                
-                                console.log('Firebase: Data loaded successfully');
-                                console.log(`Products: ${products.length}, Sales: ${sales.length}, Expenses: ${expenses.length}, Restocks: ${restocks.length}`);
-                                
-                                firebaseReady = true;
-                                
-                                // Try to migrate from localStorage if Firebase is empty
-                                if (products.length === 0 && sales.length === 0) {
-                                    migrateFromLocalStorage();
-                                }
-                                
-                                resolve();
-                            } catch (error) {
-                                console.error('Firebase: Error loading data', error);
-                                // Fallback to localStorage
-                                loadFromLocalStorage();
-                                resolve();
-                            }
+                // Load products
+                const productsSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/products`));
+                products = productsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                
+                // Load sales
+                const salesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/sales`));
+                sales = salesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                
+                // Load expenses
+                const expensesSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/expenses`));
+                expenses = expensesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                
+                // Load restocks
+                const restocksSnapshot = await getDocs(collection(window.firebaseDb, `${userCollection}/restocks`));
+                restocks = restocksSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id }));
+                
+                console.log('Firebase: Data loaded successfully');
+                console.log(`Products: ${products.length}, Sales: ${sales.length}, Expenses: ${expenses.length}, Restocks: ${restocks.length}`);
+                
+                firebaseReady = true;
+                
+                // If Firebase is empty, check if we should migrate from localStorage
+                if (products.length === 0 && sales.length === 0) {
+                    const hasLocalData = localStorage.getItem('products') || localStorage.getItem('sales');
+                    
+                    if (hasLocalData) {
+                        // Ask user if they want to migrate old data
+                        const migrate = confirm('Found old local data. Do you want to upload it to cloud?\n\nClick OK to upload, or Cancel to start fresh.');
+                        
+                        if (migrate) {
+                            await migrateFromLocalStorage();
                         } else {
-                            console.log('Firebase: No user authenticated, loading from localStorage');
-                            loadFromLocalStorage();
-                            resolve();
+                            // User chose to start fresh, clear stale localStorage
+                            console.log('User chose to start fresh, clearing stale localStorage');
+                            clearLocalStorage();
                         }
-                    });
-                });
+                    }
+                } else {
+                    // Firebase has data, sync it to localStorage (overwrite any stale data)
+                    syncToLocalStorage();
+                }
             } catch (error) {
-                console.error('Firebase: Initialization error', error);
+                console.error('Firebase: Error loading data', error);
+                // Only use localStorage if Firebase completely fails
+                showToast('Cloud sync failed. Using local data.', 'info');
                 loadFromLocalStorage();
+            } finally {
+                hideLoader();
             }
+        }
+        
+        // Sync Firebase data to localStorage (overwrite stale data)
+        function syncToLocalStorage() {
+            localStorage.setItem('products', JSON.stringify(products));
+            localStorage.setItem('sales', JSON.stringify(sales));
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+            localStorage.setItem('restocks', JSON.stringify(restocks));
+            console.log('Synced Firebase data to localStorage');
+        }
+        
+        // Clear all localStorage data
+        function clearLocalStorage() {
+            localStorage.removeItem('products');
+            localStorage.removeItem('sales');
+            localStorage.removeItem('expenses');
+            localStorage.removeItem('restocks');
+            console.log('Cleared localStorage');
         }
         
         // Fallback to localStorage
@@ -2907,9 +2977,14 @@
                 sales = localSales;
                 expenses = localExpenses;
                 restocks = localRestocks;
+                
                 await saveDataToFirebase();
+                
                 console.log('Migration complete!');
-                showToast('Data migrated to cloud storage!', 'success');
+                showToast('✅ Local data uploaded to cloud!', 'success');
+                
+                // Keep localStorage in sync
+                syncToLocalStorage();
             }
         }
         
@@ -2967,9 +3042,10 @@
 
         // ===== INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load data from Firebase first
+            // Load data from Firebase
             await loadDataFromFirebase();
             
+            // Initialize UI components
             migrateData();
             initializeTabs();
             initializeToggleTabs();
@@ -4578,23 +4654,21 @@
             icon.classList.add('syncing');
             
             try {
-                if (firebaseReady && userId) {
-                    // First, save current data to Firebase
-                    await saveDataToFirebase();
-                    
-                    // Then, reload data from Firebase to get any updates
+                if (firebaseReady) {
+                    // Force reload from Firebase (clears stale cache)
+                    console.log('Force syncing from cloud...');
                     await loadDataFromFirebase();
                     
                     // Refresh the UI
                     refreshAll();
                     
-                    showToast('Data synced with cloud!', 'success');
+                    showToast('✅ Synced from cloud!', 'success');
                 } else {
-                    showToast('Cloud sync not available. Using local storage.', 'info');
+                    showToast('⚠️ Cloud not available', 'info');
                 }
             } catch (error) {
                 console.error('Sync error:', error);
-                showToast('Sync failed. Data saved locally.', 'error');
+                showToast('❌ Sync failed', 'error');
             } finally {
                 icon.classList.remove('syncing');
             }
@@ -4602,24 +4676,34 @@
 
         // ===== UTILITY FUNCTIONS =====
         async function saveData() {
-            // Always save to localStorage as backup
-            localStorage.setItem('products', JSON.stringify(products));
-            localStorage.setItem('sales', JSON.stringify(sales));
-            localStorage.setItem('expenses', JSON.stringify(expenses));
-            localStorage.setItem('restocks', JSON.stringify(restocks));
-            
-            // Save to Firebase if available
-            if (firebaseReady && userId) {
+            // Save to Firebase first (source of truth)
+            if (firebaseReady) {
                 try {
                     await saveDataToFirebase();
+                    // Sync to localStorage after successful Firebase save
+                    syncToLocalStorage();
                 } catch (error) {
-                    console.error('Firebase save error:', error);
+                    console.error('Failed to save to Firebase, saving locally only', error);
+                    // Fallback: save to localStorage only
+                    localStorage.setItem('products', JSON.stringify(products));
+                    localStorage.setItem('sales', JSON.stringify(sales));
+                    localStorage.setItem('expenses', JSON.stringify(expenses));
+                    localStorage.setItem('restocks', JSON.stringify(restocks));
+                    showToast('⚠️ Saved locally (cloud sync failed)', 'info');
                 }
+            } else {
+                // Firebase not ready, save to localStorage
+                localStorage.setItem('products', JSON.stringify(products));
+                localStorage.setItem('sales', JSON.stringify(sales));
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                localStorage.setItem('restocks', JSON.stringify(restocks));
             }
         }
         
         async function saveDataToFirebase() {
             if (!firebaseReady || !userId) return;
+            
+            showLoader();
             
             try {
                 const { collection, doc, setDoc, writeBatch } = window.firebaseModules;
@@ -4655,6 +4739,8 @@
             } catch (error) {
                 console.error('Firebase: Error saving data', error);
                 throw error;
+            } finally {
+                hideLoader();
             }
         }
 
@@ -4675,6 +4761,30 @@
             toastTimeout = setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+
+        // ===== GLOBAL LOADER =====
+        let loaderStartTime = 0;
+        const MIN_LOADER_TIME = 300; // Minimum 300ms to ensure visibility
+
+        function showLoader(text = 'Loading...') {
+            const loader = document.getElementById('globalLoader');
+            const loaderText = document.getElementById('loaderText');
+            loaderText.textContent = text;
+            loader.classList.add('show');
+            loaderStartTime = Date.now();
+            console.log('🔄 Loader shown:', text);
+        }
+
+        function hideLoader() {
+            const elapsed = Date.now() - loaderStartTime;
+            const remaining = Math.max(0, MIN_LOADER_TIME - elapsed);
+            
+            setTimeout(() => {
+                const loader = document.getElementById('globalLoader');
+                loader.classList.remove('show');
+                console.log('✅ Loader hidden');
+            }, remaining);
         }
     </script>
 </body>
