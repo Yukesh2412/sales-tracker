@@ -144,23 +144,40 @@
         }
 
         .profile-icon {
-            min-width: var(--touch-target);
-            min-height: var(--touch-target);
-            width: var(--touch-target);
-            height: var(--touch-target);
-            border: 2px solid var(--color-text-primary);
-            border-radius: var(--radius-full);
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-full);
             cursor: pointer;
             transition: all var(--transition-base);
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--color-bg-secondary);
+            min-height: var(--touch-target);
+        }
+
+        .profile-icon svg {
+            width: 20px;
+            height: 20px;
+            color: var(--color-text-primary);
+        }
+
+        .profile-icon span {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            text-transform: lowercase;
+        }
+
+        .profile-icon:hover {
+            border-color: var(--color-accent);
+            background: var(--color-bg-tertiary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--color-accent-glow);
         }
 
         .profile-icon:active {
-            transform: scale(0.92);
-            background: rgba(255, 255, 255, 0.2);
+            transform: scale(0.95);
         }
 
         .header h1 {
@@ -514,6 +531,35 @@
             border: 1px solid var(--color-border);
             position: relative;
             overflow: hidden;
+        }
+
+        .full-stat-card {
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            transition: all var(--transition-base);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+            width: 100%;
+            margin-bottom: var(--space-5);
+        }
+
+        .full-stat-card .label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+        }
+
+        .full-stat-card .calc-text {
+            margin-top: 8px;
+            color: var(--color-text-secondary);
+            font-size: 13px;
+        }
+
+        .full-stat-card .stat-value {
+            font-size: 22px;
+            font-weight: 800;
         }
 
         .stat-card::before {
@@ -1161,10 +1207,27 @@
             gap: 6px;
             padding-top: 20px;
             border-top: 1px dashed #2a3f52;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 5px;
+        }
+
+        .chart-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .chart-container::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 3px;
+        }
+
+        .chart-container::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         .chart-bar {
-            flex: 1;
+            min-width: 20px;
+            flex-shrink: 0;
             background: var(--color-accent);
             border-radius: 6px 6px 0 0;
             min-height: 4px;
@@ -1204,10 +1267,26 @@
             display: flex;
             gap: 6px;
             margin-top: 10px;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .chart-labels::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .chart-labels::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 3px;
+        }
+
+        .chart-labels::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         .chart-label {
-            flex: 1;
+            min-width: 20px;
+            flex-shrink: 0;
             text-align: center;
             font-size: 10px;
             color: #8a9ba8;
@@ -1604,17 +1683,18 @@
             background: var(--color-bg-secondary);
             border: 2px solid var(--color-border);
             border-radius: var(--radius-full);
-            padding: 14px 24px;
+            padding: 14px 20px;
             color: var(--color-accent);
             font-size: 14px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
             transition: all var(--transition-base);
             font-weight: 600;
             min-height: 48px;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .sort-detail-btn:hover {
@@ -2370,6 +2450,13 @@
         <!-- Header -->
         <div class="header">
             <div class="header-left">
+                <div class="profile-icon" id="profileIcon" onclick="toggleUser()" title="Switch user">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span id="userLabel">main</span>
+                </div>
                 <h1>Sales Tracker</h1>
             </div>
             <span class="sync-icon" id="syncIcon" onclick="syncData()" title="Sync from cloud">☁️</span>
@@ -2636,12 +2723,21 @@
                 </div>
             </div>
 
+            <!-- Full-width Capital Card -->
+            <div class="full-stat-card" id="capitalCard">
+                <div class="label-row">
+                    <div class="stat-label">CAPITAL</div>
+                    <div class="stat-value" id="reportCapital">₹ <span id="reportCapitalValue">0.00</span></div>
+                </div>
+                <div class="calc-text">Total invested in inventory</div>
+            </div>
+
             <p class="avg-info">Avg / day: ₹ <span id="avgPerDay">0.00</span> · <span id="workingDays">0</span> working days</p>
 
             <div class="chart-card">
                 <div class="chart-header">
                     <div>
-                        <div class="chart-title">DAILY SALES</div>
+                        <div class="chart-title" id="chartTitle">DAILY SALES</div>
                         <div class="chart-subtitle" id="chartMonth">Jun 2026</div>
                     </div>
                     <div class="chart-toggle" id="chartToggle">
@@ -2842,7 +2938,7 @@
 
     <script>
         // ===== STATIC USER - ALWAYS LOGGED IN =====
-        const userId = 'main_user'; // Single user for all devices
+        let userId = localStorage.getItem('activeUser') || 'main_user'; // User can toggle between test and main_user
 
         // ===== DATA STORAGE =====
         let products = [];
@@ -3042,6 +3138,12 @@
 
         // ===== INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', async () => {
+            // Update user label in header
+            const userLabel = document.getElementById('userLabel');
+            if (userLabel) {
+                userLabel.textContent = userId === 'main_user' ? 'main' : 'test';
+            }
+            
             // Load data from Firebase
             await loadDataFromFirebase();
             
@@ -3178,6 +3280,9 @@
             const now = new Date();
             const months = [];
             
+            // Add Lifetime option first
+            months.push({ value: 'lifetime', label: 'Lifetime' });
+            
             for (let i = 0; i < 12; i++) {
                 const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -3186,6 +3291,12 @@
             }
             
             select.innerHTML = months.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+            
+            // Select current month by default (second option after Lifetime)
+            if (select.options.length > 1) {
+                select.selectedIndex = 1;
+            }
+            
             select.addEventListener('change', updateReport);
         }
 
@@ -3287,6 +3398,24 @@
                 };
 
                 products.push(product);
+
+                // Record initial restock entry so capital can be calculated from history
+                if (qty > 0) {
+                    const restockId = restocks.length > 0 ? Math.max(...restocks.map(r => r.id)) + 1 : 1;
+                    restocks.push({
+                        id: restockId,
+                        productId: product.id,
+                        productName: product.name,
+                        quantity: qty,
+                        costPerUnit: costPrice,
+                        oldQuantity: 0,
+                        newQuantity: qty,
+                        type: 'initial',
+                        date: new Date().toISOString().split('T')[0],
+                        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        createdAt: new Date().toISOString()
+                    });
+                }
                 saveData();
                 
                 // Reset form
@@ -3875,10 +4004,11 @@
             if (!periodSelect || !periodSelect.value) return;
             
             const period = periodSelect.value;
-            const [year, month] = period.split('-');
+            const isLifetime = period === 'lifetime';
             
-            const periodSales = sales.filter(s => s.date && s.date.startsWith(period));
-            const periodExpenses = expenses.filter(e => e.date && e.date.startsWith(period));
+            const periodSales = isLifetime ? sales : sales.filter(s => s.date && s.date.startsWith(period));
+            const periodExpenses = isLifetime ? expenses : expenses.filter(e => e.date && e.date.startsWith(period));
+            const periodRestocks = isLifetime ? restocks : restocks.filter(r => r.date && r.date.startsWith(period));
             
             const totalSales = periodSales.reduce((sum, s) => sum + (parseFloat(s.soldPrice) || 0), 0);
             const totalCost = periodSales.reduce((sum, s) => sum + (parseFloat(s.costPrice) || 0), 0);
@@ -3902,6 +4032,16 @@
             if (profitMarginEl) profitMarginEl.textContent = margin;
             if (avgPerDayEl) avgPerDayEl.textContent = avgPerDay.toLocaleString('en-IN', { minimumFractionDigits: 2 });
             if (workingDaysEl) workingDaysEl.textContent = workingDays;
+
+            // Calculate capital from restock history for the selected period
+            const totalCapital = periodRestocks.reduce((sum, r) => {
+                const qty = parseInt(r.quantity) || 0;
+                const cost = parseFloat(r.costPerUnit || r.costPrice) || 0;
+                return sum + (qty * cost);
+            }, 0);
+
+            const reportCapitalEl = document.getElementById('reportCapitalValue');
+            if (reportCapitalEl) reportCapitalEl.textContent = totalCapital.toLocaleString('en-IN', { minimumFractionDigits: 2 });
             
             // Color profit/loss
             const profitEl = document.getElementById('reportProfitValue');
@@ -3913,7 +4053,17 @@
             }
             
             const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            if (chartMonthEl) chartMonthEl.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+            const chartTitleEl = document.getElementById('chartTitle');
+            if (chartMonthEl) {
+                if (isLifetime) {
+                    chartMonthEl.textContent = 'All Time';
+                    if (chartTitleEl) chartTitleEl.textContent = 'MONTHLY SALES';
+                } else {
+                    const [year, month] = period.split('-');
+                    chartMonthEl.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+                    if (chartTitleEl) chartTitleEl.textContent = 'DAILY SALES';
+                }
+            }
             
             renderChart();
             renderReportHistory();
@@ -3921,53 +4071,110 @@
 
         function renderChart() {
             const period = document.getElementById('reportPeriod').value;
-            const periodSales = sales.filter(s => s.date && s.date.startsWith(period));
-            
-            // Group by day
-            const dailyData = {};
-            periodSales.forEach(s => {
-                if (!s.date) return;
-                const day = parseInt(s.date.split('-')[2]);
-                if (isNaN(day)) return;
-                
-                if (!dailyData[day]) {
-                    dailyData[day] = { sales: 0, profit: 0 };
-                }
-                dailyData[day].sales += (parseFloat(s.soldPrice) || 0);
-                dailyData[day].profit += (parseFloat(s.profit) || 0);
-            });
-            
-            const values = Object.values(dailyData).map(d => chartType === 'sales' ? d.sales : d.profit);
-            const maxValue = Math.max(...values, 1);
+            const isLifetime = period === 'lifetime';
+            const periodSales = isLifetime ? sales : sales.filter(s => s.date && s.date.startsWith(period));
             
             const chartContainer = document.getElementById('chartContainer');
             const chartLabels = document.getElementById('chartLabels');
             
-            // Get days in month
-            const [year, month] = period.split('-');
-            const daysInMonth = new Date(year, month, 0).getDate();
-            const displayDays = Math.min(daysInMonth, 14);
-            
-            let barsHtml = '';
-            let labelsHtml = '';
-            
-            for (let i = 1; i <= displayDays; i++) {
-                const data = dailyData[i] || { sales: 0, profit: 0 };
-                const value = chartType === 'sales' ? data.sales : data.profit;
-                const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                const hasData = value > 0;
+            if (isLifetime) {
+                // For lifetime, group by month
+                const monthlyData = {};
+                periodSales.forEach(s => {
+                    if (!s.date) return;
+                    const monthKey = s.date.substring(0, 7); // YYYY-MM
+                    
+                    if (!monthlyData[monthKey]) {
+                        monthlyData[monthKey] = { sales: 0, profit: 0 };
+                    }
+                    monthlyData[monthKey].sales += (parseFloat(s.soldPrice) || 0);
+                    monthlyData[monthKey].profit += (parseFloat(s.profit) || 0);
+                });
                 
-                barsHtml += `<div class="chart-bar ${chartType} ${hasData ? 'has-data' : ''}" style="height: ${Math.max(height, 2)}%" data-value="₹${value.toFixed(0)}"></div>`;
-                labelsHtml += `<div class="chart-label">${i}</div>`;
+                const sortedMonths = Object.keys(monthlyData).sort();
+                const displayMonths = sortedMonths.length > 12 ? sortedMonths.slice(-12) : sortedMonths; // Show up to last 12 months
+                const values = displayMonths.map(m => chartType === 'sales' ? monthlyData[m].sales : monthlyData[m].profit);
+                const maxValue = Math.max(...values, 1);
+                
+                let barsHtml = '';
+                let labelsHtml = '';
+                
+                displayMonths.forEach(monthKey => {
+                    const data = monthlyData[monthKey];
+                    const value = chartType === 'sales' ? data.sales : data.profit;
+                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                    const hasData = value > 0;
+                    const [year, month] = monthKey.split('-');
+                    const monthLabel = new Date(year, parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short' });
+                    
+                    barsHtml += `<div class="chart-bar ${chartType} ${hasData ? 'has-data' : ''}" style="height: ${Math.max(height, 2)}%" data-value="₹${value.toFixed(0)}"></div>`;
+                    labelsHtml += `<div class="chart-label">${monthLabel}</div>`;
+                });
+                
+                chartContainer.innerHTML = barsHtml || '<div style="text-align: center; padding: 20px; color: var(--color-text-tertiary);">No data available</div>';
+                chartLabels.innerHTML = labelsHtml;
+                
+                // Sync scroll between chart and labels
+                if (barsHtml) {
+                    chartContainer.onscroll = () => {
+                        chartLabels.scrollLeft = chartContainer.scrollLeft;
+                    };
+                    chartLabels.onscroll = () => {
+                        chartContainer.scrollLeft = chartLabels.scrollLeft;
+                    };
+                }
+            } else {
+                // Group by day
+                const dailyData = {};
+                periodSales.forEach(s => {
+                    if (!s.date) return;
+                    const day = parseInt(s.date.split('-')[2]);
+                    if (isNaN(day)) return;
+                    
+                    if (!dailyData[day]) {
+                        dailyData[day] = { sales: 0, profit: 0 };
+                    }
+                    dailyData[day].sales += (parseFloat(s.soldPrice) || 0);
+                    dailyData[day].profit += (parseFloat(s.profit) || 0);
+                });
+                
+                const values = Object.values(dailyData).map(d => chartType === 'sales' ? d.sales : d.profit);
+                const maxValue = Math.max(...values, 1);
+                
+                // Get days in month
+                const [year, month] = period.split('-');
+                const daysInMonth = new Date(year, month, 0).getDate();
+                
+                let barsHtml = '';
+                let labelsHtml = '';
+                
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const data = dailyData[i] || { sales: 0, profit: 0 };
+                    const value = chartType === 'sales' ? data.sales : data.profit;
+                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                    const hasData = value > 0;
+                    
+                    barsHtml += `<div class="chart-bar ${chartType} ${hasData ? 'has-data' : ''}" style="height: ${Math.max(height, 2)}%" data-value="₹${value.toFixed(0)}"></div>`;
+                    labelsHtml += `<div class="chart-label">${i}</div>`;
+                }
+                
+                chartContainer.innerHTML = barsHtml;
+                chartLabels.innerHTML = labelsHtml;
+                
+                // Sync scroll between chart and labels
+                chartContainer.onscroll = () => {
+                    chartLabels.scrollLeft = chartContainer.scrollLeft;
+                };
+                chartLabels.onscroll = () => {
+                    chartContainer.scrollLeft = chartLabels.scrollLeft;
+                };
             }
-            
-            chartContainer.innerHTML = barsHtml;
-            chartLabels.innerHTML = labelsHtml;
         }
 
         function renderReportHistory() {
             const period = document.getElementById('reportPeriod').value;
-            const periodSales = sales.filter(s => s.date && s.date.startsWith(period));
+            const isLifetime = period === 'lifetime';
+            const periodSales = isLifetime ? sales : sales.filter(s => s.date && s.date.startsWith(period));
             
             // Group by date
             const groupedSales = {};
@@ -4352,6 +4559,10 @@
             if (deleteTarget.type === 'product') {
                 const product = products.find(p => p.id === deleteTarget.id);
                 products = products.filter(p => p.id !== deleteTarget.id);
+                
+                // Also remove all restock history for this product
+                restocks = restocks.filter(r => r.productId !== deleteTarget.id);
+                
                 showToast(`"${product?.name}" deleted`, 'success');
             } else if (deleteTarget.type === 'sale') {
                 // Find the sale to get product and quantity info
@@ -4425,6 +4636,7 @@
                         productId: products[index].id,
                         productName: products[index].name,
                         quantity: qtyDifference,
+                        costPerUnit: products[index].costPrice,
                         oldQuantity: oldQty,
                         newQuantity: newQty,
                         date: new Date().toISOString().split('T')[0],
@@ -4503,11 +4715,17 @@
                 const period = periodSelect && periodSelect.value ? periodSelect.value : null;
                 
                 if (period) {
-                    filteredSales = sales.filter(s => s.date && s.date.startsWith(period));
-                    filteredExpenses = expenses.filter(e => e.date && e.date.startsWith(period));
-                    const [year, month] = period.split('-');
-                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                    periodText = `${monthNames[parseInt(month) - 1]} ${year}`;
+                    const isLifetime = period === 'lifetime';
+                    filteredSales = isLifetime ? sales : sales.filter(s => s.date && s.date.startsWith(period));
+                    filteredExpenses = isLifetime ? expenses : expenses.filter(e => e.date && e.date.startsWith(period));
+                    
+                    if (isLifetime) {
+                        periodText = 'Lifetime';
+                    } else {
+                        const [year, month] = period.split('-');
+                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                        periodText = `${monthNames[parseInt(month) - 1]} ${year}`;
+                    }
                 }
             }
             
@@ -4517,6 +4735,31 @@
             const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
             const totalProfit = totalSales - totalCost - totalExpenses;
             const margin = totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(2) : 0;
+            
+            // Calculate capital from restocks for the period
+            let filteredRestocks = restocks;
+            if (isDetailedView) {
+                // For detailed view, filter by date range
+                filteredRestocks = restocks.filter(r => {
+                    if (!r.date) return false;
+                    if (detailFromDate && r.date < detailFromDate) return false;
+                    if (detailToDate && r.date > detailToDate) return false;
+                    return true;
+                });
+            } else {
+                // Use report period filter
+                const periodSelect = document.getElementById('reportPeriod');
+                const period = periodSelect && periodSelect.value ? periodSelect.value : null;
+                if (period && period !== 'lifetime') {
+                    filteredRestocks = restocks.filter(r => r.date && r.date.startsWith(period));
+                }
+            }
+            
+            const totalCapital = filteredRestocks.reduce((sum, r) => {
+                const qty = parseInt(r.quantity) || 0;
+                const cost = parseFloat(r.costPerUnit || r.costPrice) || 0;
+                return sum + (qty * cost);
+            }, 0);
             
             // Calculate working days
             const uniqueDates = [...new Set(filteredSales.map(s => s.date).filter(d => d))];
@@ -4529,7 +4772,7 @@
             // Header
             csv += `SALES REPORT - ${periodText}\n`;
             csv += `Generated: ${new Date().toLocaleDateString('en-IN')}\n`;
-            csv += `Total Sales: ${totalSales.toFixed(2)} | Profit: ${totalProfit.toFixed(2)} | Margin: ${margin}% | Days: ${workingDays}\n`;
+            csv += `Total Sales: ${totalSales.toFixed(2)} | Profit: ${totalProfit.toFixed(2)} | Margin: ${margin}% | Capital: ${totalCapital.toFixed(2)} | Days: ${workingDays}\n`;
             csv += '\n';
             
             // Sales Details
@@ -4579,6 +4822,21 @@
                     csv += `E${expense.id},${expense.date || ''},${desc},${parseFloat(expense.amount).toFixed(2)}\n`;
                 });
                 csv += `TOTAL,,,${totalExpenses.toFixed(2)}\n`;
+                csv += '\n';
+            }
+            
+            // Capital (Inventory Investment)
+            if (filteredRestocks.length > 0) {
+                csv += 'CAPITAL (INVENTORY INVESTMENT)\n';
+                csv += 'ID,Date,Product,Quantity,Cost Per Unit,Total Investment\n';
+                filteredRestocks.forEach(restock => {
+                    const productName = (restock.productName || 'Unknown').replace(/,/g, ' ');
+                    const qty = restock.quantity || 0;
+                    const costPerUnit = parseFloat(restock.costPerUnit || restock.costPrice) || 0;
+                    const total = qty * costPerUnit;
+                    csv += `R${restock.id},${restock.date || ''},${productName},${qty},${costPerUnit.toFixed(2)},${total.toFixed(2)}\n`;
+                });
+                csv += `TOTAL CAPITAL,,,,,"${totalCapital.toFixed(2)}"\n`;
                 csv += '\n';
             }
             
@@ -4674,6 +4932,74 @@
             }
         }
 
+        // ===== TOGGLE USER =====
+        async function toggleUser() {
+            // Toggle between main_user and test
+            const currentUser = userId;
+            const newUser = currentUser === 'main_user' ? 'test' : 'main_user';
+            
+            // Save to localStorage
+            localStorage.setItem('activeUser', newUser);
+            userId = newUser;
+            
+            // Update UI label
+            const userLabel = document.getElementById('userLabel');
+            if (userLabel) {
+                userLabel.textContent = newUser === 'main_user' ? 'main' : 'test';
+            }
+            
+            // Clear current data
+            products = [];
+            sales = [];
+            expenses = [];
+            restocks = [];
+            
+            // Clear all form inputs in add tab
+            const itemNameEl = document.getElementById('itemName');
+            const itemQtyEl = document.getElementById('itemQty');
+            const costPriceEl = document.getElementById('costPrice');
+            const sellPriceEl = document.getElementById('sellPrice');
+            const taxPercentEl = document.getElementById('taxPercent');
+            
+            if (itemNameEl) itemNameEl.value = '';
+            if (itemQtyEl) itemQtyEl.value = '1';
+            if (costPriceEl) costPriceEl.value = '';
+            if (sellPriceEl) sellPriceEl.value = '';
+            if (taxPercentEl) taxPercentEl.value = '0';
+            
+            // Clear autocomplete dropdown in sales tab
+            const dropdown = document.getElementById('productDropdown');
+            if (dropdown) {
+                dropdown.classList.remove('show');
+                dropdown.innerHTML = '';
+            }
+            
+            // Clear search inputs
+            const productSearchEl = document.getElementById('productSearch');
+            if (productSearchEl) productSearchEl.value = '';
+            
+            // Show loader and reload data from Firebase
+            showLoader('Switching user...');
+            
+            try {
+                if (firebaseReady) {
+                    await loadDataFromFirebase();
+                    refreshAll();
+                    showToast(`✅ Switched to ${newUser === 'main_user' ? 'Main' : 'Test'} user`, 'success');
+                } else {
+                    // Load from localStorage if Firebase not ready
+                    loadFromLocalStorage();
+                    refreshAll();
+                    showToast(`Switched to ${newUser === 'main_user' ? 'Main' : 'Test'} user (offline)`, 'info');
+                }
+            } catch (error) {
+                console.error('Error switching user:', error);
+                showToast('❌ Failed to switch user', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
         // ===== UTILITY FUNCTIONS =====
         async function saveData() {
             // Save to Firebase first (source of truth)
@@ -4706,35 +5032,66 @@
             showLoader();
             
             try {
-                const { collection, doc, setDoc, writeBatch } = window.firebaseModules;
-                const batch = writeBatch(window.firebaseDb);
+                const { collection, doc, setDoc, writeBatch, getDocs, deleteDoc } = window.firebaseModules;
                 const userCollection = `users/${userId}`;
+                
+                // Step 1: Get all existing documents and delete them
+                const deleteBatch = writeBatch(window.firebaseDb);
+                
+                // Delete all existing products
+                const existingProducts = await getDocs(collection(window.firebaseDb, `${userCollection}/products`));
+                existingProducts.forEach(docSnapshot => {
+                    deleteBatch.delete(docSnapshot.ref);
+                });
+                
+                // Delete all existing sales
+                const existingSales = await getDocs(collection(window.firebaseDb, `${userCollection}/sales`));
+                existingSales.forEach(docSnapshot => {
+                    deleteBatch.delete(docSnapshot.ref);
+                });
+                
+                // Delete all existing expenses
+                const existingExpenses = await getDocs(collection(window.firebaseDb, `${userCollection}/expenses`));
+                existingExpenses.forEach(docSnapshot => {
+                    deleteBatch.delete(docSnapshot.ref);
+                });
+                
+                // Delete all existing restocks
+                const existingRestocks = await getDocs(collection(window.firebaseDb, `${userCollection}/restocks`));
+                existingRestocks.forEach(docSnapshot => {
+                    deleteBatch.delete(docSnapshot.ref);
+                });
+                
+                await deleteBatch.commit();
+                
+                // Step 2: Add current data
+                const addBatch = writeBatch(window.firebaseDb);
                 
                 // Save products
                 products.forEach(product => {
                     const productRef = doc(window.firebaseDb, `${userCollection}/products`, `product_${product.id}`);
-                    batch.set(productRef, product);
+                    addBatch.set(productRef, product);
                 });
                 
                 // Save sales
                 sales.forEach(sale => {
                     const saleRef = doc(window.firebaseDb, `${userCollection}/sales`, `sale_${sale.id}`);
-                    batch.set(saleRef, sale);
+                    addBatch.set(saleRef, sale);
                 });
                 
                 // Save expenses
                 expenses.forEach(expense => {
                     const expenseRef = doc(window.firebaseDb, `${userCollection}/expenses`, `expense_${expense.id}`);
-                    batch.set(expenseRef, expense);
+                    addBatch.set(expenseRef, expense);
                 });
                 
                 // Save restocks
                 restocks.forEach(restock => {
                     const restockRef = doc(window.firebaseDb, `${userCollection}/restocks`, `restock_${restock.id}`);
-                    batch.set(restockRef, restock);
+                    addBatch.set(restockRef, restock);
                 });
                 
-                await batch.commit();
+                await addBatch.commit();
                 console.log('Firebase: Data saved successfully');
             } catch (error) {
                 console.error('Firebase: Error saving data', error);
@@ -4749,6 +5106,20 @@
             renderSalesHistory();
             updateReport();
             renderRestockHistory();
+            updateItemId(); // Update item ID for add tab
+            
+            // Clear autocomplete dropdown to remove deleted products
+            const dropdown = document.getElementById('productDropdown');
+            if (dropdown) {
+                dropdown.classList.remove('show');
+                dropdown.innerHTML = '';
+            }
+            
+            // If product search has text, refresh the search results
+            const searchInput = document.getElementById('productSearch');
+            if (searchInput && searchInput.value.trim()) {
+                searchProducts(searchInput.value);
+            }
         }
 
         let toastTimeout;
